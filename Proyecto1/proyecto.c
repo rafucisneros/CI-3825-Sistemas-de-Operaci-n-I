@@ -121,51 +121,53 @@ int palindromo(char str[]){
     int tamano = strlen(str); // Tamaño de la palabra introducida
 	int i; // Centro desde se busca identificar si es palindromo
     int len;
-    int first = 0;
-    int cool;
+    int specialChar;
 	printf("Palindromos encontrados");
+
+	// Si se encuentra con un caracter dentro del conjunto
+	// {á, é, í, ó, ú, ñ, ü}, este ocupara 2 espacios en vez de solo
+	// 1. Nos aseguraremos que las posiciones tomadas sean siempre las
+	// de la segunda posicion
     for (i=0; i<=tamano-1;i++){ // Empezamos tomando como centro la segunda letra y avanzamos hasta el final
 		// Para buscar los palindromos pares
-		if(str[i] < 0){
-			i++;
+		if(str[i] < 0){//Si el caracter i es especial 
+			i++;       //Se apunta a su segunda posicion
 		}
-		first = 1;
-		cool = 0;
-		len = 0;
+		specialChar = 0; //Valor identificador de un primer caracter especial
+		len = 0; //Longitud del palindromo (+2 caracter especial)
 		l = i-1;
 		h = i;
-		if(str[i] < 0){
-			l--;
+		if(str[i] < 0){//Si el caracter i es especial 
+			l--;       //Se asegura no apuntar con l a su primera posicion
 		}
+
 		while (l >= 0 && h < tamano){
-			if(str[h] > 0){
-				if (compare_acentos(str, l, h)){
-					len += 2;
-					if (cool) printf(", %.*s", len, str+l);
-					cool = 1;
+			if(str[h] > 0){//Si h no es especial
+				if (compare_acentos(str, l, h)){ //Comparamos igualdad
+					len += 2; 
+					if (specialChar) printf(", %.*s", len, str+l);
+					specialChar = 1; //Ajuste al largo
 				}
 
 				else{
 					break;
 				}
 				h++;
-
 				if(str[h]<0){
 					h++;
 				}
 				l--;
 			}
 
-			else {
+			else {//Si h es especial
 				if (compare_acentos(str, l, h)){
 					len += 4;
-					if (cool) printf(", %.*s", len, str+l-1);
-					cool = 1;
+					if (specialChar) printf(", %.*s", len, str+l-1);
+					specialChar = 1;
 				}
 				else{
 					break;
 				}
-
 				h++;
 				if(str[h]<0){
 					h++;
