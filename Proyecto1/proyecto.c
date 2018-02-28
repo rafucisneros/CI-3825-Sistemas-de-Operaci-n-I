@@ -28,12 +28,12 @@ int pipe_padre_palindromos[2];
 
 // Funcion que calcula la profundidad de un directorio
 int calcular_profundidad(char str[]){
-	int profundidad = 0;
+	int profundidad = 0; 
 	char c;
 	int i = 0;
 	c = str[i];
 	while (c != '\0'){
-		if (c == '/'){
+		if (c == '/'){ // Si encontramos un "/" subimos una profundidad
 			profundidad++;
 		}
 		i++;
@@ -44,6 +44,7 @@ int calcular_profundidad(char str[]){
 
 // Funcion para parsear un path y eliminar / y acentos
 char *parsear(char str[]){
+	printf("Parseando %s\n", str);
 	char parseado[strlen(str)];
 	int i=0;
 	int k = 0;
@@ -253,6 +254,7 @@ int accion_por_nodo(const char *nombre, const struct stat *inode, int algo) {
 	if(S_ISREG(inode->st_mode)){ // Chequeamos segun el modo del inode si es un archivo
 		if (flag_incluir_archivos){		// Chequeamos el flag de incluir archivos
 			sem_wait(buffer_vacio);		// Esperamos que el buffer este vacio
+			//agregar \0 al final del buffer
 			char *buffer_nombre = (char*) nombre;	// buffer para guardar el path a escribir
 			write(pipe_padre_palindromos[1], buffer_nombre ,strlen(buffer_nombre)); // Escribimos en el pipe
 			sem_post(buffer_lleno);		// Enviamos señal de que el buffer esta lleno
@@ -315,12 +317,12 @@ int main(int argc, char *argv[]){
 			sem_wait(buffer_lleno); // Esperamos que el buffer este lleno 
 			read(pipe_padre_palindromos[0], buffer, 10000); // Leemos el pipe
 			char *path;
-			path = parsear(buffer);
+			path = parsear(buffer); // Parseamos el path para elimimar "/", "." y mayusculas 
+			memset(buffer,0,10000);  // Vaciamos el buffer para evitar conflictos
 			sem_post(buffer_vacio);	// Enviamos señal que el buffer esta vacio
 			if (path == 0){
 				continue;
 			}
-			path = parsear(buffer);
 			palindromo(path);	// Pasamos el path encontrado
 		}
 	}
