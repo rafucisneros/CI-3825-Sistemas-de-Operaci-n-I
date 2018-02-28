@@ -46,16 +46,16 @@ int calcular_profundidad(char str[]){
 
 // Funcion para parsear un path y eliminar / y acentos
 char *parsear(char str[]){
-	char parseado[strlen(str)];
-	int i=0;
-	int k = 0;
-	while(str[i] != '\0'){	
-		if (str[i]>0 && str[i]!='.' && str[i]!='/'){
-			parseado[k] = tolower(str[i]);
-			k++;
+	char parseado[strlen(str)];	// 
+	int i=0; // Contador para el string que estamos parseando
+	int k = 0; // Contador para el string que estamos creando
+	while(str[i] != '\0'){ 	// Leemos hasta el final del string	
+		if (str[i]>0 && str[i]!='.' && str[i]!='/'){ // Un caracter normal
+			parseado[k] = tolower(str[i]); // Lo ponemos en minuscula
+			k++;	// Proximo caracter
 		}
-		else if (str[i] == -61){
-			parseado[k++] = str[i++];			
+		else if (str[i] == -61){ // Un caracter especial, 2 espacios ocupados
+			parseado[k++] = str[i++]; // El	primer numero siempre es el mismo
 			switch(str[i]){
 				case (-127): // Á
 					parseado[k] = -95; // á
@@ -86,14 +86,14 @@ char *parsear(char str[]){
 					k++;
 					break;
 				default:
-					parseado[k] = str[i];
+					parseado[k] = str[i]; // Cualquier otro string
 					k++;
 					break;
 			}
 		}
 		i++;
 	}
-	char *final = calloc(k+1,sizeof(char));
+	char *final = calloc(k+1,sizeof(char)); // Creamos una nueva memoria
 	int y = 0;
 	while(y < k){
 		final[y]=parseado[y];
@@ -103,6 +103,7 @@ char *parsear(char str[]){
 	return final;
 }
 
+// Funcion que
 int compare_acentos(char str[], int l, int h){
 	if (str[h] > 0){ 
 		return (str[l] == str[h]);
@@ -116,6 +117,7 @@ int compare_acentos(char str[], int l, int h){
 	return 0;
 }
 
+// Funcion que busca todos los palindromos contenidos en un string
 int palindromo(char str[]){
     int l; // Sera la posicion mas izquierda de la palabra
     int h; // Sera la posicion mas a la derecha de la palabra
@@ -123,7 +125,8 @@ int palindromo(char str[]){
 	int i; // Centro desde se busca identificar si es palindromo
     int len;
     int specialChar;
-	printf("Palindromos encontrados");
+    printf("Buscando palindromos en: %s\n",str);
+	printf("Palindromos encontrados: ");
 
 	// Si se encuentra con un caracter dentro del conjunto
 	// {á, é, í, ó, ú, ñ, ü}, este ocupara 2 espacios en vez de solo
@@ -227,23 +230,21 @@ int palindromo(char str[]){
 	printf("\n");
 }
 
-
 // Funcion que identifica las carpetas que no contienen nada
 int directorio_vacio(const char *dirname) {
-  int n = 0;
-  struct dirent *d;
-  DIR *dir = opendir(dirname);
-  if (dir == NULL) //Not a directory or doesn't exist
-    return 1;
-  while ((d = readdir(dir)) != NULL) {
-    if(++n > 2)
-      break;
-  }
-  closedir(dir);
-  if (n <= 2) //Directory Empty
-    return 1;
-  else
-    return 0;
+	int n = 0;		// Numero de cosas en la carpeta
+	struct dirent *d; // Structura con un numero de inode y el nombre
+	DIR *dir = opendir(dirname); // Abrir el directorio
+	while ((d = readdir(dir)) != NULL) {
+		n++;		// Un directorio mas
+	}
+	closedir(dir); // Cerramos el directorio
+	if (n <= 2){ 	//La carpeta esta vacia, todos los directorios tienen . y ..
+		return 1;
+	}
+	else { // n > 0, tenemos al menos 1 elemento, la carpeta no es vacia
+		return 0;
+	}
 }
 
 // Acciones que se tomaran en cada nodo del arbol directorio
@@ -273,6 +274,7 @@ int accion_por_nodo(const char *nombre, const struct stat *inode, int algo) {
 	return 0;
 }
 
+// Funcion principal
 int main(int argc, char *argv[]){
 	// Inicializamos valores para los flags
 	flag_incluir_archivos = 0;
@@ -295,13 +297,14 @@ int main(int argc, char *argv[]){
 		}	}
 
 	// Iniciamos los semaforos en memoria compartida para sincronizar los procesos
+	// Proceso Padre - Proceso Parser
 	buffer_padre_parser_lleno = mmap(NULL, sizeof(*buffer_padre_parser_lleno), 
       PROT_READ |PROT_WRITE,MAP_SHARED|MAP_ANONYMOUS, -1, 0);
 	buffer_padre_parser_vacio = mmap(NULL, sizeof(*buffer_padre_parser_vacio), 
       PROT_READ |PROT_WRITE,MAP_SHARED|MAP_ANONYMOUS, -1, 0);	
 	sem_init(buffer_padre_parser_vacio, 1, 1);
 	sem_init(buffer_padre_parser_lleno, 1, 0);
-	
+	// Proceso Parser - Proceso Palindromos
 	buffer_parser_palindromos_lleno = mmap(NULL, sizeof(*buffer_parser_palindromos_lleno), 
       PROT_READ |PROT_WRITE,MAP_SHARED|MAP_ANONYMOUS, -1, 0);
 	buffer_parser_palindromos_vacio = mmap(NULL, sizeof(*buffer_parser_palindromos_vacio), 
@@ -326,6 +329,7 @@ int main(int argc, char *argv[]){
 	// Proceso Padre
     if (proceso_palindromos != 0 && proceso_parser != 0){
 		ftw(flag_carpeta_inicial, &accion_por_nodo, 1);  // Funcion que recorre el arbol de directorio		
+		// Matamos los hijos al terminar el proceso padre
 		kill(proceso_palindromos,1);
 		kill(proceso_parser,1);
 	}
@@ -335,11 +339,8 @@ int main(int argc, char *argv[]){
 			sem_wait(buffer_parser_palindromos_lleno); // Esperamos que el buffer este lleno			
 			read(pipe_parser_palindromos[0], buffer_parser_palindromos, 10000); // Leemos el pipe
 			palindromo(buffer_parser_palindromos);	// Pasamos el path encontrado
-			//char *path;			
-			//strcpy(path,buffer_parser_palindromos); // Parseamos el path para elimimar "/", "." y mayusculas 
 			memset(buffer_parser_palindromos,0,10000);  // Vaciamos el buffer para evitar conflictos
 			sem_post(buffer_parser_palindromos_vacio);	// Enviamos señal que el buffer esta vacio
-			//palindromo(path);	// Pasamos el path encontrado
 		}
 	} // Proceso parser
 	else {
@@ -358,24 +359,6 @@ int main(int argc, char *argv[]){
 			sem_wait(buffer_parser_palindromos_vacio); // Esperamos que el buffer este vacio			
 			write(pipe_parser_palindromos[1], path_parseado, strlen(path_parseado)); // Leemos el pipe
 			sem_post(buffer_parser_palindromos_lleno);	// Enviamos señal que el buffer esta vacio
-
-/*
-			sem_wait(buffer_padre_parser_lleno); // Esperamos que el buffer este lleno
-			read(pipe_padre_parser[0], buffer_padre_parser, 10000); // Leemos el pipe
-			char *path;
-			strcpy(path,buffer_padre_parser);
-										printf("Entro %s \n", buffer_padre_parser);
-			memset(buffer_padre_parser,0,10000);  // Vaciamos el buffer para evitar conflictos
-			sem_post(buffer_padre_parser_vacio);	// Enviamos señal que el buffer esta vacio
-
-			char *path_parseado = parsear(path); // Parseamos el path para elimimar "/", "." y mayusculas 
-			if (path_parseado == 0){ // No se buscaran palindromos en ese path
-				continue;
-			}			
-			sem_wait(buffer_parser_palindromos_vacio); // Esperamos que el buffer este vacio			
-			write(pipe_parser_palindromos[1], path_parseado, strlen(path_parseado)); // Leemos el pipe
-			sem_post(buffer_parser_palindromos_lleno);	// Enviamos señal que el buffer esta vacio
-*/
 		}
 	}
 }
