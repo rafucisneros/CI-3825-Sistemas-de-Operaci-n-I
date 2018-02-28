@@ -27,7 +27,66 @@ sem_t *buffer_vacio, *buffer_lleno;
 int pipe_padre_palindromos[2];
 
 // Funcion para parsear un path y eliminar / y acentos
-
+int parsear(char str[], char* path){
+	char parseado[strlen(str)];
+	int i=0;
+	int k = 0;
+	while(str[i] != '\0'){
+		if (str[i]>0 && str[i]!='.' && str[i]!='/'){
+			parseado[k] = tolower(str[i]);
+			k++;
+		}
+		else if (str[i] == -61){
+			parseado[k++] = str[i++];			
+			switch(str[i]){
+				case (-127): // Á
+					parseado[k] = -95; // á
+					k++;
+					break;
+				case (-119): // É
+					parseado[k] = -87; // é
+					k++;
+					break;
+				case (-115): // Ï
+					parseado[k] = -83; // í
+					k++;
+					break;					
+				case (-109): // Ó
+					parseado[k] = -77; // ó
+					k++;
+					break;
+				case (-102): // Ú
+					parseado[k] = -70; // ú
+					k++;
+					break;					
+				case (-111): // Ñ
+					parseado[k] = -79; // ñ
+					k++;
+					break;
+				case (-100): // Ü
+					parseado[k] = -68; // ü
+					k++;
+					break;
+				default:
+					parseado[k] = str[i];
+					k++;
+					break;
+			}
+		}
+		i++;
+	}
+	char final[k];
+	int y = 0;
+	while(y < k){
+		final[y]=parseado[y];
+		y++;
+	}
+	final[k] = '\0';
+	strcpy(path,*final);
+	printf("!!!FINAL %s \n", final);
+	printf("!!!PATH %s \n", path);
+	return 1;
+}
 
 int compare_acentos(char str[], int l, int h){
 	if (str[h] > 0){ 
@@ -176,7 +235,7 @@ int accion_por_nodo(const char *nombre, const struct stat *inode, int algo) {
 	if(S_ISREG(inode->st_mode)){ // Chequeamos segun el modo del inode si es un archivo
 		if (flag_incluir_archivos){		// Chequeamos el flag de incluir archivos
 			sem_wait(buffer_vacio);		// Esperamos que el buffer este vacio
-			char *buffer_nombre = nombre;	// buffer para guardar el path a escribir
+			char *buffer_nombre = (char*) nombre;	// buffer para guardar el path a escribir
 			write(pipe_padre_palindromos[1], buffer_nombre ,strlen(buffer_nombre)); // Escribimos en el pipe
 			sem_post(buffer_lleno);		// Enviamos señal de que el buffer esta lleno
 		}
@@ -184,7 +243,7 @@ int accion_por_nodo(const char *nombre, const struct stat *inode, int algo) {
 	if(!(S_ISREG(inode->st_mode))){ // Chequeamos segun el modo del inode si es un directorio
 		if(directorio_vacio(nombre)){ // Chequeamos si el directorio esta vacio
 			sem_wait(buffer_vacio);	// Esperamos que el buffer este vacio
-			char *buffer_nombre = nombre; // buffer para guardar el path a escribir
+			char *buffer_nombre = (char*) nombre; // buffer para guardar el path a escribir
 			write(pipe_padre_palindromos[1], buffer_nombre ,strlen(buffer_nombre)); // Escribimos en el pipe
 			sem_post(buffer_lleno);		// Enviamos señal de que el buffer esta lleno
 		}
@@ -196,7 +255,7 @@ int main(int argc, char *argv[]){
 	// Inicializamos valores para los flags
 	flag_incluir_archivos = 0;
 	flag_carpeta_inicial = ".";
-	flag_profundidad = -1;	
+	flag_profundidad = 20;	
 	char c; // Buffer para leer los flags
 	while ((c = getopt (argc, argv, "d:m:f")) != -1){ // Leemos todos los flags enviados
 		switch (c){
@@ -229,7 +288,12 @@ int main(int argc, char *argv[]){
 	proceso_palindromos = fork();
 	// Proceso Padre
     if (proceso_palindromos != 0){
-		ftw(flag_carpeta_inicial, &accion_por_nodo, 1);  // Funcion que recorre el arbol de directorio
+
+		char *path;
+		parsear("..A../B/C/.D/..EFGHIJ/..KÓoÚuúÜuü",path);
+//printf("Sin parsear %s \n Parseada %s \n", "..A../B/C/.D/..EFGHIJ/..KÓoÚuúÜuü", path);
+		//printf("!!!PATHSSS %s \n", path);
+		//ftw(flag_carpeta_inicial, &accion_por_nodo, 1);  // Funcion que recorre el arbol de directorio
 		kill(proceso_palindromos,1); // Matamos el hijo al finalizar el padre
 	}
 	// Proceso Palindromos
