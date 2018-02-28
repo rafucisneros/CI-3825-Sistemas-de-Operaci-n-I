@@ -26,12 +26,28 @@ sem_t *buffer_vacio, *buffer_lleno;
 // Pipe
 int pipe_padre_palindromos[2];
 
+// Funcion que calcula la profundidad de un directorio
+int calcular_profundidad(char str[]){
+	int profundidad = 0;
+	char c;
+	int i = 0;
+	c = str[i];
+	while (c != '\0'){
+		if (c == '/'){
+			profundidad++;
+		}
+		i++;
+		c = str[i];
+	}
+	return profundidad;
+}
+
 // Funcion para parsear un path y eliminar / y acentos
-int parsear(char str[], char* path){
+char *parsear(char str[]){
 	char parseado[strlen(str)];
 	int i=0;
 	int k = 0;
-	while(str[i] != '\0'){
+	while(str[i] != '\0'){	
 		if (str[i]>0 && str[i]!='.' && str[i]!='/'){
 			parseado[k] = tolower(str[i]);
 			k++;
@@ -75,17 +91,14 @@ int parsear(char str[], char* path){
 		}
 		i++;
 	}
-	char final[k];
+	char *final = calloc(k+1,sizeof(char));
 	int y = 0;
 	while(y < k){
 		final[y]=parseado[y];
 		y++;
 	}
 	final[k] = '\0';
-	strcpy(path,*final);
-	printf("!!!FINAL %s \n", final);
-	printf("!!!PATH %s \n", path);
-	return 1;
+	return final;
 }
 
 int compare_acentos(char str[], int l, int h){
@@ -109,6 +122,7 @@ int palindromo(char str[]){
     int len;
     int first = 0;
     int cool;
+	printf("Palindromos encontrados");
     for (i=0; i<=tamano-1;i++){ // Empezamos tomando como centro la segunda letra y avanzamos hasta el final
 		// Para buscar los palindromos pares
 		if(str[i] < 0){
@@ -122,12 +136,11 @@ int palindromo(char str[]){
 		if(str[i] < 0){
 			l--;
 		}
-
 		while (l >= 0 && h < tamano){
 			if(str[h] > 0){
 				if (compare_acentos(str, l, h)){
 					len += 2;
-					if (cool) printf("%.*s\n", len, str+l);
+					if (cool) printf(", %.*s", len, str+l);
 					cool = 1;
 				}
 
@@ -145,7 +158,7 @@ int palindromo(char str[]){
 			else {
 				if (compare_acentos(str, l, h)){
 					len += 4;
-					if (cool) printf("%.*s\n", len, str+l-1);
+					if (cool) printf(", %.*s", len, str+l-1);
 					cool = 1;
 				}
 				else{
@@ -175,7 +188,7 @@ int palindromo(char str[]){
 			if(str[h] > 0){
 				if (compare_acentos(str, l, h)){
 					len += 2;
-					printf("%.*s\n", len, str+l);
+					printf(", %.*s", len, str+l);
 				}
 
 				else{
@@ -192,7 +205,7 @@ int palindromo(char str[]){
 			else {
 				if (compare_acentos(str, l, h)){
 					len += 4;
-					printf("%.*s\n", len, str+l-1);
+					printf(", %.*s", len, str+l-1);
 				}
 				else{
 					break;
@@ -206,7 +219,8 @@ int palindromo(char str[]){
 				l--;
 			}
 		}
-	}	
+	}
+	printf("\n");
 }
 
 
@@ -230,7 +244,11 @@ int directorio_vacio(const char *dirname) {
 
 // Acciones que se tomaran en cada nodo del arbol directorio
 int accion_por_nodo(const char *nombre, const struct stat *inode, int algo) {
-	// Hacemos algo solo cuando estamos en las hojas del arbol
+	// Hacemos algo solo cuando estamos en las hojas del arbol o excedimos la profundidad
+	int profundidad = calcular_profundidad((char *)nombre);
+	 if (profundidad > flag_profundidad){
+		 return 0;
+ }
 	
 	if(S_ISREG(inode->st_mode)){ // Chequeamos segun el modo del inode si es un archivo
 		if (flag_incluir_archivos){		// Chequeamos el flag de incluir archivos
@@ -241,7 +259,7 @@ int accion_por_nodo(const char *nombre, const struct stat *inode, int algo) {
 		}
 	}
 	if(!(S_ISREG(inode->st_mode))){ // Chequeamos segun el modo del inode si es un directorio
-		if(directorio_vacio(nombre)){ // Chequeamos si el directorio esta vacio
+		if((directorio_vacio(nombre)) || profundidad == flag_profundidad){ // Chequeamos si el directorio esta vacio o tiene la profundidad tope
 			sem_wait(buffer_vacio);	// Esperamos que el buffer este vacio
 			char *buffer_nombre = (char*) nombre; // buffer para guardar el path a escribir
 			write(pipe_padre_palindromos[1], buffer_nombre ,strlen(buffer_nombre)); // Escribimos en el pipe
@@ -288,12 +306,7 @@ int main(int argc, char *argv[]){
 	proceso_palindromos = fork();
 	// Proceso Padre
     if (proceso_palindromos != 0){
-
-		char *path;
-		parsear("..A../B/C/.D/..EFGHIJ/..KÓoÚuúÜuü",path);
-//printf("Sin parsear %s \n Parseada %s \n", "..A../B/C/.D/..EFGHIJ/..KÓoÚuúÜuü", path);
-		//printf("!!!PATHSSS %s \n", path);
-		//ftw(flag_carpeta_inicial, &accion_por_nodo, 1);  // Funcion que recorre el arbol de directorio
+		ftw(flag_carpeta_inicial, &accion_por_nodo, 1);  // Funcion que recorre el arbol de directorio
 		kill(proceso_palindromos,1); // Matamos el hijo al finalizar el padre
 	}
 	// Proceso Palindromos
@@ -301,8 +314,14 @@ int main(int argc, char *argv[]){
 		while(1){
 			sem_wait(buffer_lleno); // Esperamos que el buffer este lleno 
 			read(pipe_padre_palindromos[0], buffer, 10000); // Leemos el pipe
-			palindromo(buffer);	// Pasamos el path encontrado
+			char *path;
+			path = parsear(buffer);
 			sem_post(buffer_vacio);	// Enviamos señal que el buffer esta vacio
+			if (path == 0){
+				continue;
+			}
+			path = parsear(buffer);
+			palindromo(path);	// Pasamos el path encontrado
 		}
 	}
 }
