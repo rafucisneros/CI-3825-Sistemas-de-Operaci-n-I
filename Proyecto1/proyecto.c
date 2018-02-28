@@ -138,9 +138,9 @@ int palindromo(char str[]){
 			i++;       //Se apunta a su segunda posicion
 		}
 		specialChar = 0; //Valor identificador de un primer caracter especial
-		len = 0; //Longitud del palindromo (+2 caracter especial)
-		l = i-1;
-		h = i;
+		len = 0; //Longitud del palindromo (+2 cuando es caracter especial)
+		l = i-1; // Caracter anterior al centro
+		h = i;   // Caracter central
 		if(str[i] < 0){//Si el caracter i es especial 
 			l--;       //Se asegura no apuntar con l a su primera posicion
 		}
@@ -154,45 +154,45 @@ int palindromo(char str[]){
 				}
 
 				else{
-					break;
+					break; //Si no son iguales, continuamos moviendo el centro
 				}
 				h++;
 				if(str[h]<0){
-					h++;
+					h++;//Si el nuevo caracter es especial, nos ubicamos en su segunda posicion
 				}
 				l--;
 			}
 
 			else {//Si h es especial
 				if (compare_acentos(str, l, h)){
-					len += 4;
+					len += 4; //Agregamos doble tamano a la longitud del nuevo string
 					if (specialChar) printf(", %.*s", len, str+l-1);
-					specialChar = 1;
+					specialChar = 1;//Ajuste al rango
 				}
 				else{
 					break;
 				}
 				h++;
 				if(str[h]<0){
-					h++;
+					h++;//Si el nuevo caracter es especial, nos ubicamos en la segunda posicion
 				}
 				l--;
 				l--;
 			}
 		}
-		
-		len = 1;
-		l = i-1;
-		h = i+1;
-		if(str[i] < 0){
+		//Para palindromos impares
+		len = 1; // Longitud ya cuenta el centro (no importa que tenga acento)
+		l = i-1; // Caracter anterior al centro
+		h = i+1; // Caracter siguiente al centro
+		if(str[i] < 0){ //Si el centro es especial
 			l--;
 		}
-		if(str[h] < 0){
+		if(str[h] < 0){ //Si el siguiente es especial
 			h++;
 		}
 
 		while (l >= 0 && h < tamano){
-			if(str[h] > 0){
+			if(str[h] > 0){ //H no especial
 				if (compare_acentos(str, l, h)){
 					len += 2;
 					printf(", %.*s", len, str+l);
@@ -203,13 +203,13 @@ int palindromo(char str[]){
 				}
 				h++;
 
-				if(str[h]<0){
+				if(str[h]<0){//Si la nueva h es especial
 					h++;
 				}
 				l--;
 			}
 
-			else {
+			else {//h especial
 				if (compare_acentos(str, l, h)){
 					len += 4;
 					printf(", %.*s", len, str+l-1);
@@ -219,7 +219,7 @@ int palindromo(char str[]){
 				}
 
 				h++;
-				if(str[h]<0){
+				if(str[h]<0){//si la nueva h es especial
 					h++;
 				}
 				l--;
