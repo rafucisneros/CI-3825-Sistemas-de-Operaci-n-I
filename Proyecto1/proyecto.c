@@ -13,48 +13,143 @@
 # include <semaphore.h>
 # include <fcntl.h>
 # include <signal.h>
-#include <errno.h>
-#include <sys/mman.h>
+# include <errno.h>
+# include <sys/mman.h>
+# include <ctype.h>
 
 // Flags
 char *flag_carpeta_inicial;
 int flag_profundidad;
 int flag_incluir_archivos;
 // Semaforos
-sem_t *semaforo_palindromos_principal, *semaforo_principal_palindromos;	
+sem_t *buffer_vacio, *buffer_lleno;	
 // Pipe
 int pipe_padre_palindromos[2];
 
-// Funcion que busca todos los palindromos contenidos en una palabra
+// Funcion para parsear un path y eliminar / y acentos
+
+
+int compare_acentos(char str[], int l, int h){
+	if (str[h] > 0){ 
+		return (str[l] == str[h]);
+	}
+	
+	else {
+		if (str[l-1] == str[h-1]){
+			return (str[l] == str[h]);
+		}
+	}
+	return 0;
+}
+
 int palindromo(char str[]){
     int l; // Sera la posicion mas izquierda de la palabra
     int h; // Sera la posicion mas a la derecha de la palabra
     int tamano = strlen(str); // Tamaño de la palabra introducida
-
 	int i; // Centro desde se busca identificar si es palindromo
-    for (i=1; i<tamano-1;i++){ // Empezamos tomando como centro la segunda letra y avanzamos hasta el final
+    int len;
+    int first = 0;
+    int cool;
+    for (i=0; i<=tamano-1;i++){ // Empezamos tomando como centro la segunda letra y avanzamos hasta el final
 		// Para buscar los palindromos pares
-		l = i-1;
-		h = i;		
-		while (l >= 0 && h < tamano && str[l] == str[h]){
-			if (h-l+1 > 2){ // Tomamos las palabras de tamaño mayor a 2
-				printf("%.*s\n", h-l+1, str+l);			
-			}
-			h++; // Nos alejamos del centro una letra hacia la derecha
-			l--; // Nos alejamos del centro una letra hacia la izquierda
+		if(str[i] < 0){
+			i++;
 		}
-		// Para buscar los palindromos impares
+		first = 1;
+		cool = 0;
+		len = 0;
+		l = i-1;
+		h = i;
+		if(str[i] < 0){
+			l--;
+		}
+
+		while (l >= 0 && h < tamano){
+			if(str[h] > 0){
+				if (compare_acentos(str, l, h)){
+					len += 2;
+					if (cool) printf("%.*s\n", len, str+l);
+					cool = 1;
+				}
+
+				else{
+					break;
+				}
+				h++;
+
+				if(str[h]<0){
+					h++;
+				}
+				l--;
+			}
+
+			else {
+				if (compare_acentos(str, l, h)){
+					len += 4;
+					if (cool) printf("%.*s\n", len, str+l-1);
+					cool = 1;
+				}
+				else{
+					break;
+				}
+
+				h++;
+				if(str[h]<0){
+					h++;
+				}
+				l--;
+				l--;
+			}
+		}
+		
+		len = 1;
 		l = i-1;
 		h = i+1;
-		while (l >= 0 && h < tamano && str[l] == str[h]){
-			if (h-l+1 > 2){ // Tomamos las palabras de tamaño mayor a 2
-				printf("%.*s\n", h-l+1, str+l);				
+		if(str[i] < 0){
+			l--;
+		}
+		if(str[h] < 0){
+			h++;
+		}
+
+		while (l >= 0 && h < tamano){
+			if(str[h] > 0){
+				if (compare_acentos(str, l, h)){
+					len += 2;
+					printf("%.*s\n", len, str+l);
+				}
+
+				else{
+					break;
+				}
+				h++;
+
+				if(str[h]<0){
+					h++;
+				}
+				l--;
 			}
-			h++; // Nos alejamos del centro una letra hacia la derecha
-			l--; // Nos alejamos del centro una letra hacia la izquierda
+
+			else {
+				if (compare_acentos(str, l, h)){
+					len += 4;
+					printf("%.*s\n", len, str+l-1);
+				}
+				else{
+					break;
+				}
+
+				h++;
+				if(str[h]<0){
+					h++;
+				}
+				l--;
+				l--;
+			}
 		}
 	}	
 }
+
 
 // Funcion que identifica las carpetas que no contienen nada
 int directorio_vacio(const char *dirname) {
@@ -79,32 +174,31 @@ int accion_por_nodo(const char *nombre, const struct stat *inode, int algo) {
 	// Hacemos algo solo cuando estamos en las hojas del arbol
 	
 	if(S_ISREG(inode->st_mode)){ // Chequeamos segun el modo del inode si es un archivo
-		if (flag_incluir_archivos){		
-			sem_wait(semaforo_palindromos_principal);
-			char *buffer_nombre = nombre;
-			write(pipe_padre_palindromos[1], buffer_nombre ,strlen(buffer_nombre));
-			sem_post(semaforo_principal_palindromos);
+		if (flag_incluir_archivos){		// Chequeamos el flag de incluir archivos
+			sem_wait(buffer_vacio);		// Esperamos que el buffer este vacio
+			char *buffer_nombre = nombre;	// buffer para guardar el path a escribir
+			write(pipe_padre_palindromos[1], buffer_nombre ,strlen(buffer_nombre)); // Escribimos en el pipe
+			sem_post(buffer_lleno);		// Enviamos señal de que el buffer esta lleno
 		}
 	}
 	if(!(S_ISREG(inode->st_mode))){ // Chequeamos segun el modo del inode si es un directorio
 		if(directorio_vacio(nombre)){ // Chequeamos si el directorio esta vacio
-			sem_wait(semaforo_palindromos_principal);
-			char *buffer_nombre = nombre;
-			write(pipe_padre_palindromos[1], buffer_nombre ,strlen(buffer_nombre));
-			sem_post(semaforo_principal_palindromos);
+			sem_wait(buffer_vacio);	// Esperamos que el buffer este vacio
+			char *buffer_nombre = nombre; // buffer para guardar el path a escribir
+			write(pipe_padre_palindromos[1], buffer_nombre ,strlen(buffer_nombre)); // Escribimos en el pipe
+			sem_post(buffer_lleno);		// Enviamos señal de que el buffer esta lleno
 		}
 	}
 	return 0;
 }
 
 int main(int argc, char *argv[]){
-
-	// Chequeamos flags
+	// Inicializamos valores para los flags
 	flag_incluir_archivos = 0;
 	flag_carpeta_inicial = ".";
-	flag_profundidad = -1;
-	char c;
-	while ((c = getopt (argc, argv, "d:m:f")) != -1){
+	flag_profundidad = -1;	
+	char c; // Buffer para leer los flags
+	while ((c = getopt (argc, argv, "d:m:f")) != -1){ // Leemos todos los flags enviados
 		switch (c){
 			case ('d'):
 				flag_carpeta_inicial = optarg;
@@ -114,92 +208,40 @@ int main(int argc, char *argv[]){
 				break;
 			case ('f'):
 				flag_incluir_archivos = 1;
-				break;
-
-				
+				break;				
 			default:
 				abort ();
-		}
-	}
+		}	}
 
-	// Creamos 1 proceso hijo que recibira por un pipe las paths para
+	// Iniciamos los semaforos en memoria compartida para sincronizar los procesos
+	buffer_lleno = mmap(NULL, sizeof(*buffer_lleno), 
+      PROT_READ |PROT_WRITE,MAP_SHARED|MAP_ANONYMOUS, -1, 0);
+	buffer_vacio = mmap(NULL, sizeof(*buffer_vacio), 
+      PROT_READ |PROT_WRITE,MAP_SHARED|MAP_ANONYMOUS, -1, 0);	
+	sem_init(buffer_vacio, 1, 1);
+	sem_init(buffer_lleno, 1, 0);
+	// Creamos el pipe y el buffer para contener los paths
+	pipe(pipe_padre_palindromos);
+	char buffer[10000];	
+	// Creamos 1 proceso hijo que recibira por un pipe las paths "limpios" para
 	// buscar palindromos
 	pid_t proceso_palindromos;
-	// Iniciamos los semaforos para sincronizar los procesos
-	semaforo_palindromos_principal = mmap(NULL, sizeof(*semaforo_palindromos_principal), 
-      PROT_READ |PROT_WRITE,MAP_SHARED|MAP_ANONYMOUS,
-      -1, 0);
-	semaforo_principal_palindromos = mmap(NULL, sizeof(*semaforo_principal_palindromos), 
-      PROT_READ |PROT_WRITE,MAP_SHARED|MAP_ANONYMOUS,
-      -1, 0);
-	
-	sem_init(semaforo_palindromos_principal, 1, 1);
-	sem_init(semaforo_principal_palindromos, 1, 0);
-	// Creamos el pipe y el buffer para contener las 
-	pipe(pipe_padre_palindromos);
-	char buffer[10000];
-	
 	proceso_palindromos = fork();
-
 	// Proceso Padre
     if (proceso_palindromos != 0){
-
-		/*
-		int i;
-		for (i=0;i<2;i++){
-			char *nombre = "anitalavalatinaarepera";
-			sem_wait(semaforo_palindromos_principal);
-			char *buffer_nombre = nombre;
-			write(pipe_padre_palindromos[1], buffer_nombre ,strlen(buffer_nombre));
-			sem_post(semaforo_principal_palindromos);
-		}
-		*/
-		
-		ftw(flag_carpeta_inicial, &accion_por_nodo, 1);
+		ftw(flag_carpeta_inicial, &accion_por_nodo, 1);  // Funcion que recorre el arbol de directorio
 		kill(proceso_palindromos,1); // Matamos el hijo al finalizar el padre
-		
 	}
 	// Proceso Palindromos
 	else {
 		while(1){
-			sem_wait(semaforo_principal_palindromos);
-			read(pipe_padre_palindromos[0], buffer, 10000);
-			palindromo(buffer);
-			sem_post(semaforo_palindromos_principal);
+			sem_wait(buffer_lleno); // Esperamos que el buffer este lleno 
+			read(pipe_padre_palindromos[0], buffer, 10000); // Leemos el pipe
+			palindromo(buffer);	// Pasamos el path encontrado
+			sem_post(buffer_vacio);	// Enviamos señal que el buffer esta vacio
 		}
 	}
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 
