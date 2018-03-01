@@ -5,17 +5,16 @@
 # include <ftw.h>
 # include <stdlib.h>
 # include <stdio.h>
-# include <string.h>
 # include <dirent.h>
 # include <sys/types.h>
 # include <sys/stat.h>
 # include <unistd.h>
 # include <semaphore.h>
-# include <fcntl.h>
 # include <signal.h>
 # include <errno.h>
 # include <sys/mman.h>
-# include <ctype.h>
+# include "parser.h"
+# include "palindromo.h"
 
 // Flags
 char *flag_carpeta_inicial;
@@ -27,219 +26,6 @@ sem_t *buffer_parser_palindromos_lleno, *buffer_parser_palindromos_vacio;
 // Pipe
 int pipe_padre_parser[2];
 int pipe_parser_palindromos[2];
-
-// Funcion que calcula la profundidad de un directorio
-int calcular_profundidad(char str[]){
-	int profundidad = 0; 
-	char c;
-	int i = 0;
-	c = str[i];
-	while (c != '\0'){
-		if (c == '/'){ // Si encontramos un "/" subimos una profundidad
-			profundidad++;
-		}
-		i++;
-		c = str[i];
-	}
-	return profundidad;
-}
-
-// Funcion para parsear un path y eliminar / y acentos
-char *parsear(char str[]){
-	char parseado[strlen(str)];	// 
-	int i=0; // Contador para el string que estamos parseando
-	int k = 0; // Contador para el string que estamos creando
-	while(str[i] != '\0'){ 	// Leemos hasta el final del string	
-		if (str[i]>0 && str[i]!='.' && str[i]!='/'){ // Un caracter normal
-			parseado[k] = tolower(str[i]); // Lo ponemos en minuscula
-			k++;	// Proximo caracter
-		}
-		else if (str[i] == -61){ // Un caracter especial, 2 espacios ocupados
-			parseado[k++] = str[i++]; // El	primer numero siempre es el mismo
-			switch(str[i]){
-				case (-127): // Á
-					parseado[k] = -95; // á
-					k++;
-					break;
-				case (-119): // É
-					parseado[k] = -87; // é
-					k++;
-					break;
-				case (-115): // Ï
-					parseado[k] = -83; // í
-					k++;
-					break;					
-				case (-109): // Ó
-					parseado[k] = -77; // ó
-					k++;
-					break;
-				case (-102): // Ú
-					parseado[k] = -70; // ú
-					k++;
-					break;					
-				case (-111): // Ñ
-					parseado[k] = -79; // ñ
-					k++;
-					break;
-				case (-100): // Ü
-					parseado[k] = -68; // ü
-					k++;
-					break;
-				default:
-					parseado[k] = str[i]; // Cualquier otro string
-					k++;
-					break;
-			}
-		}
-		i++;
-	}
-	char *final = calloc(k+1,sizeof(char)); // Creamos una nueva memoria
-	int y = 0;
-	while(y < k){
-		final[y]=parseado[y];
-		y++;
-	}
-	final[k] = '\0';
-	return final;
-}
-
-/*// Funcion que
-int compare_acentos(char str[], int l, int h){
-	if (str[h] > 0){ 
-		return (str[l] == str[h]);
-	}
-	
-	else {
-		if (str[l-1] == str[h-1]){
-			return (str[l] == str[h]);
-		}
-	}
-	return 0;
-}*/
-
-// Funcion que busca todos los palindromos contenidos en un string
-int palindromo(char str[]){
-    int l; // Sera la posicion mas izquierda de la palabra
-    int h; // Sera la posicion mas a la derecha de la palabra
-    int tamano = strlen(str); // Tamaño de la palabra introducida
-	int i; // Centro desde se busca identificar si es palindromo
-    int len;
-    int specialChar;
-    int encontrado = 0;
-    printf("\nBuscando palindromos en la cadena: %s\n",str);
-	printf("  Palindromos encontrados: ");
-
-	// Si se encuentra con un caracter dentro del conjunto
-	// {á, é, í, ó, ú, ñ, ü}, este ocupara 2 espacios en vez de solo
-	// 1. Nos aseguraremos que las posiciones tomadas sean siempre las
-	// de la segunda posicion
-    for (i=0; i<=tamano-1;i++){ // Empezamos tomando como centro la segunda letra y avanzamos hasta el final
-		// Para buscar los palindromos pares
-		if(str[i] < 0){//Si el caracter i es especial 
-			i++;       //Se apunta a su segunda posicion
-		}
-		specialChar = 0; //Valor identificador de un primer caracter especial
-		len = 0; //Longitud del palindromo (+2 cuando es caracter especial)
-		l = i-1; // Caracter anterior al centro
-		h = i;   // Caracter central
-		if(str[i] < 0){//Si el caracter i es especial 
-			l--;       //Se asegura no apuntar con l a su primera posicion
-		}
-
-		while (l >= 0 && h < tamano){
-			if(str[h] > 0){//Si h no es especial
-				if (str[l] == str[h]){ //Comparamos igualdad
-					len += 2; 
-					if (specialChar) printf("%.*s", len, str+l);
-					specialChar = 1; //Ajuste al largo
-					encontrado = 1;
-				}
-
-				else{
-					break; //Si no son iguales, continuamos moviendo el centro
-				}
-				h++;
-				if(str[h]<0){
-					h++;//Si el nuevo caracter es especial, nos ubicamos en su segunda posicion
-				}
-				l--;
-			}
-
-			else {//Si h es especial
-				if (str[l] == str[h]){
-					len += 4; //Agregamos doble tamano a la longitud del nuevo string
-					if (specialChar) printf("%.*s", len, str+l-1);
-					specialChar = 1;//Ajuste al rango
-					encontrado = 1;
-				}
-				else{
-					break;
-				}
-				h++;
-				if(str[h]<0){
-					h++;//Si el nuevo caracter es especial, nos ubicamos en la segunda posicion
-				}
-				l--;
-				l--;
-			}
-			printf(". ");
-		}
-		//Para palindromos impares
-		len = 1; // Longitud ya cuenta el centro (no importa que tenga acento)
-		l = i-1; // Caracter anterior al centro
-		h = i+1; // Caracter siguiente al centro
-		if(str[i] < 0){ //Si el centro es especial
-			l--;
-		}
-		if(str[h] < 0){ //Si el siguiente es especial
-			h++;
-		}
-
-		while (l >= 0 && h < tamano){
-			if(str[h] > 0){ //H no especial
-				if (str[l] == str[h]){
-					len += 2;
-					printf("%.*s", len, str+l);
-					encontrado = 1;
-				}
-
-				else{
-					break;
-				}
-				h++;
-
-				if(str[h]<0){//Si la nueva h es especial
-					h++;
-				}
-				l--;
-			}
-
-			else {//h especial
-				if (str[l] == str[h]){
-					len += 4;
-					printf("%.*s", len, str+l-1);
-					encontrado = 1;
-				}
-				else{
-					break;
-				}
-
-				h++;
-				if(str[h]<0){//si la nueva h es especial
-					h++;
-				}
-				l--;
-				l--;
-			}
-			printf(". ");
-		}
-	}
-	if(!encontrado){
-		 printf("Ninguno");
-	}
-
-	printf("\n");
-}
 
 // Funcion que identifica las carpetas que no contienen nada
 int directorio_vacio(const char *dirname) {
@@ -350,6 +136,7 @@ int main(int argc, char *argv[]){
 			sem_wait(buffer_parser_palindromos_lleno); // Esperamos que el buffer este lleno			
 			read(pipe_parser_palindromos[0], buffer_parser_palindromos, 10000); // Leemos el pipe
 			palindromo(buffer_parser_palindromos);	// Pasamos el path encontrado
+			
 			memset(buffer_parser_palindromos,0,10000);  // Vaciamos el buffer para evitar conflictos
 			sem_post(buffer_parser_palindromos_vacio);	// Enviamos señal que el buffer esta vacio
 		}
@@ -373,6 +160,3 @@ int main(int argc, char *argv[]){
 		}
 	}
 }
-
-
-
