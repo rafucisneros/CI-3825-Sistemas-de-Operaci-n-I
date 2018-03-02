@@ -27,22 +27,33 @@ sem_t *buffer_parser_palindromos_lleno, *buffer_parser_palindromos_vacio;
 int pipe_padre_parser[2];
 int pipe_parser_palindromos[2];
 
-// Funcion que identifica las carpetas que no contienen nada
-int directorio_vacio(const char *dirname) {
+// Funcion que identifica las carpetas que no contienen nada o solo contiene archivos
+int directorio_vacio_o_solo_archivos(const char *dirname) {
+	// Directorio vacio
 	int n = 0;		// Numero de cosas en la carpeta
+	int solo_archivos = 1; // Variable booleana 
+	struct stat *inode; // inode del archivo leido
 	struct dirent *d; // Structura con un numero de inode y el nombre
 	DIR *dir = opendir(dirname); // Abrir el directorio
 	while ((d = readdir(dir)) != NULL) {
 		n++;		// Un directorio mas
+		if (n >= 3){	// Despues del segundo
+			if (d->d_type == DT_DIR){ // Si el archivo actual es una carpeta
+				solo_archivos = 0; // La carpeta no solo contiene archivos
+			}
+		}
 	}
 	closedir(dir); // Cerramos el directorio
-	if (n <= 2){ 	//La carpeta esta vacia, todos los directorios tienen . y ..
+	//La carpeta esta vacia, todos los directorios tienen . y .. por eso n<=2
+	// o la carpeta solo tiene archivos
+	if (n <= 2 || (solo_archivos == 1 && flag_incluir_archivos == 0)){ 
 		return 1;
 	}
-	else { // n > 0, tenemos al menos 1 elemento, la carpeta no es vacia
+	else { // n > 0, tenemos al menos 1 elemento, la carpeta no es vacia		
 		return 0;
 	}
 }
+
 
 // Acciones que se tomaran en cada nodo del arbol directorio
 int accion_por_nodo(const char *nombre, const struct stat *inode, int algo) {
@@ -61,7 +72,7 @@ int accion_por_nodo(const char *nombre, const struct stat *inode, int algo) {
 		}
 	}
 	if(!(S_ISREG(inode->st_mode))){ // Chequeamos segun el modo del inode si es un directorio
-		if((directorio_vacio(nombre)) || profundidad == flag_profundidad){ // Chequeamos si el directorio esta vacio o tiene la profundidad tope
+		if((directorio_vacio_o_solo_archivos(nombre)) || profundidad == flag_profundidad){ // Chequeamos si el directorio esta vacio o tiene la profundidad tope
 			sem_wait(buffer_padre_parser_vacio);	// Esperamos que el buffer este vacio
 			char *buffer_nombre = (char*) nombre; // buffer para guardar el path a escribir
 			write(pipe_padre_parser[1], buffer_nombre ,strlen(buffer_nombre)); // Escribimos en el pipe
