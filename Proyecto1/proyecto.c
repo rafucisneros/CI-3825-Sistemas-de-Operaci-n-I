@@ -103,14 +103,15 @@ char *parsear(char str[]){
 	return final;
 }
 
-// Funcion que
+// Funcion que determina si 2 caracteres son iguales, sin importan
+// si son caracteres especiales o regulares de la tabla ascii
 int compare_acentos(char str[], int l, int h){
-	if (str[h] > 0){ 
-		return (str[l] == str[h]);
+	if (str[h] > 0){ // Si es un caracter regular
+		return (str[l] == str[h]); // Se comparan normalmente
 	}
 	
-	else {
-		if (str[l-1] == str[h-1]){
+	else { // Si es especial
+		if (str[l-1] == str[h-1]){ // Se compara el caracter en la posicion anterior
 			return (str[l] == str[h]);
 		}
 	}
@@ -362,6 +363,3 @@ int main(int argc, char *argv[]){
 		}
 	}
 }
-
-
-
