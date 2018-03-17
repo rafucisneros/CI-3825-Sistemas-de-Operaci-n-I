@@ -1,6 +1,7 @@
 # include <stdio.h>
 # include <string.h>
 # include <stdlib.h>
+# include <getopt.h>
 # define TRUE = 1==1
 # define FALSE = !TRUE
 
@@ -210,7 +211,7 @@ Indice* Insertar_Llave_Hash(Indice *tabla, char *path, int inicio){
     return tabla;
 }
 
-int main(){
+int main(int argc, char **argv){
     Indice *tabla_hash = crear_indice(10);
     // 16 llaves distintas
     tabla_hash = Insertar_Llave_Hash(tabla_hash, "home/rafael/tarea/Casa de Papel.pdf",0);                 
@@ -229,6 +230,65 @@ int main(){
     printf("\n");
     Imprimir_Tabla(tabla_hash);
     printf("\n");
+
+    int c;
+    while (1){    
+        static struct option long_options[] =
+            {   
+                {"noupdate", no_argument, 0, 'u'},
+                {"noadd", no_argument, 0, 'a'},
+    
+                {"dir", required_argument, 0, 'd'},
+                {"max", required_argument, 0, 'm'},
+                {"index", required_argument, 0, 'i'},
+                {0,0,0,0}
+            };
+    
+            int option_index = 0;
+    
+            c = getopt_long (argc, argv, "uad:m:i:", long_options, &option_index);
+    
+            if(c == -1){
+                break;
+            }
+            
+            switch (c) {
+                case 0:
+                    if (long_options[option_index].flag != 0)
+                        break;
+                    printf("option %s", long_options[option_index].name);
+                    if (optarg)
+                        printf(" with arg %s", optarg);
+                    printf("\n");
+                    break;
+                
+                case 'u':
+                    puts ("option -u\n");
+                    break;
+    
+                case 'a':
+                    puts ("option -a\n");
+                    break;
+    
+                case 'd':
+                    printf ("option -d with value %s\n", optarg);
+                    break;
+    
+                case 'm':
+                    printf ("option -m with value %s\n", optarg);
+                    break;
+    
+                case 'i':
+                    printf ("option -i with value %s\n", optarg);
+                    break;
+    
+                case '?':
+                    break;
+    
+                default:
+                    abort();
+            }
+        }
 }
 
 
