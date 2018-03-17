@@ -29,6 +29,38 @@ typedef struct Indice{
     int tamano;
 } Indice;
 
+
+// Funcion que imprime los paths correspondientes a una llave
+void Imprimir_Nodo(Nodo_Hash *nodo){
+    printf("\tArchivos de la llave: %s\n", nodo->llave);
+    Nodo_Path *paths = nodo->archivos;
+    while(paths != NULL){
+        printf("\t%s\n",paths->path);
+        paths = paths->siguiente;
+        printf("\n");
+    }
+}
+
+// Funcion que imprime todos las llaves correspondiente a un indice de
+// una tabla de hash
+void Imprimir_Lista(Lista_Llaves *lista){
+    Nodo_Hash *nodo = lista->primer_elemento;
+    while(nodo != NULL){
+        Imprimir_Nodo(nodo);
+        nodo = nodo->siguiente;
+    }
+}
+
+// Funcion que imprime todos los elementos de una tabla de hash
+void Imprimir_Tabla(Indice *tabla){
+    int i;
+    for(i = 0; i < tabla->tamano; i++){
+        printf("Elementos en el indice: %d. %d llaves.\n", i, tabla->contenido[i]->numero_elementos);
+        Imprimir_Lista(tabla->contenido[i]);
+        printf("\n");
+    }
+}
+
 Indice *crear_indice(int tamano){
     Lista_Llaves ** contenido = (Lista_Llaves **) malloc(tamano * sizeof(Lista_Llaves *)); 
     Indice *tabla_de_hash = (Indice*) malloc(sizeof(struct Indice));
@@ -69,35 +101,6 @@ Nodo_Hash *buscar(Indice *tabla, char *llave){
     return nodo;
 }
 
-// Funcion que imprime los paths correspondientes a una llave
-void imprimir_nodo(Nodo_Hash *nodo){
-    printf("Archivos para la llave: %s\n", nodo->llave);
-    Nodo_Path *paths = nodo->archivos;
-    while(paths != NULL){
-        printf("%s\n",paths->path);
-        paths = paths->siguiente;
-    }
-}
-
-// Funcion que imprime todos las llaves correspondiente a un indice de
-// una tabla de hash
-void imprimir_lista(Lista_Llaves *lista){
-    Nodo_Hash *nodo = lista->primer_elemento;
-    while(nodo != NULL){
-        imprimir_nodo(nodo);
-        nodo = nodo->siguiente;
-    }
-}
-
-// Funcion que imprime todos los elementos de una tabla de hash
-void imprimir_tabla(Indice* tabla){
-    int i;
-    for(i = 0; i < tabla->tamano; i++){
-        printf("Elementos en el indice: %d\n", i);
-        imprimir_lista(tabla->contenido[i]);
-    }
-}
-
 // Funcion que inserta un Nodo con paths en una tabla de hash
 void insertar_coleccion_paths(Indice* tabla, Nodo_Hash* coleccion){
     int indice = hash(coleccion->llave, tabla->tamano);
@@ -120,11 +123,11 @@ Indice* rehash(Indice* tabla_antigua){
     Indice *nueva_tabla = crear_indice(tamano);
     for(int i; i<tamano_viejo; i++){
         Lista_Llaves *lista_actual = tabla_antigua->contenido[i];
-        if(lista_actual->numero_elementos){
+        if(!lista_actual->numero_elementos){
             continue;
         } else {
             Nodo_Hash *nodo_a_reinsertar = lista_actual->primer_elemento;
-            while(nodo_a_reinsertar){
+            while(nodo_a_reinsertar != NULL){
                 insertar_coleccion_paths(nueva_tabla, nodo_a_reinsertar);
                 nodo_a_reinsertar = nodo_a_reinsertar->siguiente;
             }
@@ -174,7 +177,7 @@ Indice* Insertar_Llave_Hash(Indice *tabla, char *path, int inicio){
                 if (tabla->contenido[indice]->numero_elementos > 2){ // Demasiadas colisiones
                     printf("Necesitamos hacer Rehash\n");
                     tabla = rehash(tabla);
-                    Insertar_Llave_Hash(tabla,path,inicio); // REVISAR LOS ELEMENTOS QUE YA HABIAN SIDO INTRODUCIDOS
+                    tabla = Insertar_Llave_Hash(tabla,path,inicio); // REVISAR LOS ELEMENTOS QUE YA HABIAN SIDO INTRODUCIDOS
                 } else {
                     Nodo_Hash *nueva_llave = malloc(sizeof(Nodo_Hash));
                     Nodo_Path *nuevo_path = malloc(sizeof(Nodo_Path));
@@ -207,40 +210,9 @@ Indice* Insertar_Llave_Hash(Indice *tabla, char *path, int inicio){
     return tabla;
 }
 
-// Funcion que imprime los paths correspondientes a una llave
-void Imprimir_Nodo(Nodo_Hash *nodo){
-    printf("\tArchivos de la llave: %s\n", nodo->llave);
-    Nodo_Path *paths = nodo->archivos;
-    while(paths != NULL){
-        printf("\t%s\n",paths->path);
-        paths = paths->siguiente;
-        printf("\n");
-    }
-}
-
-// Funcion que imprime todos las llaves correspondiente a un indice de
-// una tabla de hash
-void Imprimir_Lista(Lista_Llaves *lista){
-    Nodo_Hash *nodo = lista->primer_elemento;
-    while(nodo != NULL){
-        Imprimir_Nodo(nodo);
-        nodo = nodo->siguiente;
-    }
-}
-
-// Funcion que imprime todos los elementos de una tabla de hash
-void Imprimir_Tabla(Indice *tabla){
-    int i;
-    for(i = 0; i < tabla->tamano; i++){
-        printf("Elementos en el indice: %d. %d llaves.\n", i, tabla->contenido[i]->numero_elementos);
-        Imprimir_Lista(tabla->contenido[i]);
-        printf("\n");
-    }
-}
-
 int main(){
     Indice *tabla_hash = crear_indice(10);
-
+    // 16 llaves distintas
     tabla_hash = Insertar_Llave_Hash(tabla_hash, "home/rafael/tarea/Casa de Papel.pdf",0);                 
     printf("\n");
     tabla_hash = Insertar_Llave_Hash(tabla_hash, "home/rafael/tarea/Clase Proba.txt",0);                   
