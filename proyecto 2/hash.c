@@ -103,17 +103,23 @@ Nodo_Hash *buscar(Indice *tabla, char *llave){
 }
 
 // Funcion que inserta un Nodo con paths en una tabla de hash
-void insertar_coleccion_paths(Indice* tabla, Nodo_Hash* coleccion){
-    int indice = hash(coleccion->llave, tabla->tamano);
-    Lista_Llaves *lista_actual = (Lista_Llaves *) tabla->contenido[indice];    
+void insertar_coleccion_paths(Indice* tabla, char *llave, Nodo_Path *archivos){
+    int indice = hash(llave, tabla->tamano);
+    Lista_Llaves *lista_actual = (Lista_Llaves *) tabla->contenido[indice]; 
+
+    Nodo_Hash *nueva_coleccion = (Nodo_Hash *) malloc(sizeof(Nodo_Hash));
+    nueva_coleccion->archivos = archivos;
+    nueva_coleccion->llave = llave;
+    nueva_coleccion->siguiente = NULL;
+
     if(!lista_actual->numero_elementos){
-        lista_actual->primer_elemento = coleccion;
+        lista_actual->primer_elemento = nueva_coleccion;
     } else {
         Nodo_Hash *nodo = lista_actual->primer_elemento;
         for(int i = 1; i < lista_actual->numero_elementos; i++) {
             nodo = nodo->siguiente;
         }
-        nodo->siguiente = coleccion;
+        nodo->siguiente = nueva_coleccion;
     }
     lista_actual->numero_elementos++;
 }
@@ -124,12 +130,11 @@ Indice* rehash(Indice* tabla_antigua){
     Indice *nueva_tabla = crear_indice(tamano);
     for(int i; i<tamano_viejo; i++){
         Lista_Llaves *lista_actual = tabla_antigua->contenido[i];
-        if(!lista_actual->numero_elementos){
-            continue;
+        if(lista_actual->numero_elementos == 0){
         } else {
             Nodo_Hash *nodo_a_reinsertar = lista_actual->primer_elemento;
             while(nodo_a_reinsertar != NULL){
-                insertar_coleccion_paths(nueva_tabla, nodo_a_reinsertar);
+                insertar_coleccion_paths(nueva_tabla, nodo_a_reinsertar->llave, nodo_a_reinsertar->archivos);
                 nodo_a_reinsertar = nodo_a_reinsertar->siguiente;
             }
         }
@@ -175,20 +180,18 @@ Indice* Insertar_Llave_Hash(Indice *tabla, char *path, int inicio){
             int indice = hash(substring, tabla->tamano);
             Nodo_Hash *nodo = buscar(tabla, substring);
             if (nodo == NULL){ // Nueva insercion en la tabla
-                if (tabla->contenido[indice]->numero_elementos > 2){ // Demasiadas colisiones
-                    printf("Necesitamos hacer Rehash\n");
+                Nodo_Hash *nueva_llave = malloc(sizeof(Nodo_Hash));
+                Nodo_Path *nuevo_path = malloc(sizeof(Nodo_Path));
+                nuevo_path->path = path;
+                nuevo_path->siguiente = NULL;
+                nueva_llave->llave = substring;
+                nueva_llave->archivos = nuevo_path;
+                nueva_llave->siguiente = tabla->contenido[indice]->primer_elemento;
+                tabla->contenido[indice]->primer_elemento = nueva_llave;
+                tabla->contenido[indice]->numero_elementos++;
+
+                if (tabla->contenido[indice]->numero_elementos > 3){ // Demasiadas colisiones
                     tabla = rehash(tabla);
-                    tabla = Insertar_Llave_Hash(tabla,path,inicio); // REVISAR LOS ELEMENTOS QUE YA HABIAN SIDO INTRODUCIDOS
-                } else {
-                    Nodo_Hash *nueva_llave = malloc(sizeof(Nodo_Hash));
-                    Nodo_Path *nuevo_path = malloc(sizeof(Nodo_Path));
-                    nuevo_path->path = path;
-                    nuevo_path->siguiente = NULL;
-                    nueva_llave->llave = substring;
-                    nueva_llave->archivos = nuevo_path;
-                    nueva_llave->siguiente = tabla->contenido[indice]->primer_elemento;
-                    tabla->contenido[indice]->primer_elemento = nueva_llave;
-                    tabla->contenido[indice]->numero_elementos++;          
                 }
             } else { // llave ya incluida
                 Nodo_Path *nuevo_path = malloc(sizeof(Nodo_Path));
@@ -211,6 +214,99 @@ Indice* Insertar_Llave_Hash(Indice *tabla, char *path, int inicio){
     return tabla;
 }
 
+void escribir_paths(FILE *f, Nodo_Path *path){
+    while(path){
+        fprintf(f, "%s\n", path->path);
+        path = path->siguiente;
+    }
+}
+
+void escribir_llave(FILE *f, Nodo_Hash *nodo){
+    while(nodo){
+        fprintf(f, "%s\n", nodo->llave);
+        escribir_paths(f, nodo->archivos);
+        fprintf(f, "/\n");
+        nodo = nodo->siguiente;
+    }
+}
+
+void escribir_indice(Indice *tabla, char *nombreIndice){
+    FILE *f = fopen(nombreIndice, "w");
+    if (f == NULL){
+        return;
+    }
+    fprintf(f, "%d\n", tabla->tamano);
+    fprintf(f, "/\n");
+    for(int i=0;i < tabla->tamano; i++){
+        if(tabla->contenido[i]->numero_elementos){
+            escribir_llave(f, tabla->contenido[i]->primer_elemento);
+        }
+    }
+    fclose(f);
+}
+
+void insertar_rapido(Indice* tabla, char* llavedir, char* pathdir){
+    char* llave = (char *) calloc(strlen(llavedir),sizeof(char));
+    strcpy(llave, llavedir);
+    char* path = (char *) calloc(strlen(pathdir),sizeof(char));
+    strcpy(path, pathdir);
+
+    int indice = hash(llave, tabla->tamano);
+    Nodo_Hash *nodo = buscar(tabla, llave);
+    if(nodo == NULL){
+        Nodo_Hash *nueva_llave = malloc(sizeof(Nodo_Hash));
+        Nodo_Path *nuevo_path = malloc(sizeof(Nodo_Path));
+        nuevo_path->path = path;
+        nuevo_path->siguiente = NULL;
+        nueva_llave->llave = llave;
+        nueva_llave->archivos = nuevo_path;
+        nueva_llave->siguiente = tabla->contenido[indice]->primer_elemento;
+        tabla->contenido[indice]->primer_elemento = nueva_llave;
+        tabla->contenido[indice]->numero_elementos++;
+    } else {
+        Nodo_Path *nuevo_path = malloc(sizeof(Nodo_Path));
+        nuevo_path->path = path;
+        nuevo_path->siguiente = nodo->archivos;
+        nodo->archivos = nuevo_path; 
+    }
+}
+
+Indice* leer_indice(char *nombreIndice){
+    FILE *f = fopen(nombreIndice, "r");
+    char buffer[2048];
+    int tamano = 30;
+
+    int scan_result = fscanf(f, "%s", buffer);
+    Indice* tabla_hash = crear_indice(atoi(buffer));
+
+    char keybuffer[2048];
+
+    // char * line = NULL;
+    // size_t len = 0;
+    // ssize_t read;
+
+    int keyswitch = 0;
+    int sendup = 0;
+    while(fscanf(f, "%s", buffer) != EOF){
+        if(!strcmp(buffer, "/")){
+            keyswitch = (-keyswitch) + 1;
+        } else {
+            if(keyswitch){
+                strcpy(keybuffer, buffer);
+                while (fgets(buffer, sizeof(buffer), f) != NULL){
+                    buffer[strlen(buffer) - 1] = '\0'; // eat the newline fgets() stores
+                    if(!strcmp(buffer, "/")) break;
+                    if(sendup)
+                    insertar_rapido(tabla_hash, keybuffer, buffer);
+                    else sendup = 1;
+                }
+                sendup = 0;
+            }
+        }
+    }
+    return tabla_hash;
+}
+
 int main(int argc, char **argv){
     Indice *tabla_hash = crear_indice(10);
     // 16 llaves distintas
@@ -228,8 +324,12 @@ int main(int argc, char **argv){
     printf("\n");
     tabla_hash = Insertar_Llave_Hash(tabla_hash, "home/rafael/tarea/Proyecto 2.c",0);                  
     printf("\n");
-    Imprimir_Tabla(tabla_hash);
+    //Imprimir_Tabla(tabla_hash);
     printf("\n");
+
+    escribir_indice(tabla_hash, "IndiceHash.txt");
+    Indice *nueva_tabla = leer_indice("IndiceHash.txt");
+    //Imprimir_Tabla(nueva_tabla);
 
     int c;
     while (1){    
