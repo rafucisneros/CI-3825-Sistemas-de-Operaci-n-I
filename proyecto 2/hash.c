@@ -50,7 +50,7 @@ void imprimir_nodo(Nodo_Hash *nodo){
     printf("\tArchivos de la llave: %s\n", nodo->llave);
     Nodo_Path *paths = nodo->archivos;
     while(paths != NULL){
-        printf("\t%s\n",paths->path);
+        printf("\t\t%s\n",paths->path);
         paths = paths->siguiente;
     }
 }
@@ -204,7 +204,7 @@ Indice* insertar_llave_hash(Indice *tabla, char *path, int inicio){
                 nueva_llave->siguiente = tabla->contenido[indice]->primer_elemento;
                 tabla->contenido[indice]->primer_elemento = nueva_llave;
                 tabla->contenido[indice]->numero_elementos++;
-
+				printf("ENTRO %s\n", nuevo_path->path);
                 if (tabla->contenido[indice]->numero_elementos > 20){ // Demasiadas colisiones
                     tabla = rehash(tabla);
                 }
@@ -214,6 +214,7 @@ Indice* insertar_llave_hash(Indice *tabla, char *path, int inicio){
                 nuevo_path->path = path;
                 nuevo_path->siguiente = nodo->archivos;
                 nodo->archivos = nuevo_path; 
+				printf("ENTRO %s\n", nuevo_path->path);
             }
             if (c != '\0'){
                 // Siguiente palabra
@@ -519,7 +520,7 @@ int main(int argc, char **argv){
 	//pthread_create(hilo,NULL,funcion_hilo,carpeta_inicial);
 	
 	// Buscador
-	/*
+/*
     // 16 llaves distintas
     tabla_hash = insertar_llave_hash(tabla_hash, "home/rafael/tarea/Casa de Papel.pdf",0); 
     tabla_hash = insertar_llave_hash(tabla_hash, "home/rafael/tarea/Clase Proba.txt",0); 
@@ -539,16 +540,16 @@ int main(int argc, char **argv){
 	} else {
 		printf("No se encontraron coincidencias");
 	}
-	*/
+*/
 
 	// Recorrido del arbol
-	
+/*	
 	printf("ANTES\n");
 	imprimir_tabla(tabla_hash);
 	nftw(carpeta_inicial,&accion_por_nodo,20,0);
 	printf("DESPUES\n");
 	imprimir_tabla(tabla_hash);
-
+*/
 }
 
 
