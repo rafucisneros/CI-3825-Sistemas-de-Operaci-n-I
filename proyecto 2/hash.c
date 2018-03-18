@@ -2,8 +2,18 @@
 # include <string.h>
 # include <stdlib.h>
 # include <getopt.h>
+//# include <unistd.h>
+//# include <pthread.h>
+//# include <ftw.h>
 # define TRUE = 1==1
 # define FALSE = !TRUE
+
+// Flags
+char *carpeta_inicial;
+int altura;
+char *archivo_indice;
+int no_add;
+int no_update;
 
 // Estructura que contendra los diferentes archivos que se encuentran
 // al buscar una palabra
@@ -32,32 +42,31 @@ typedef struct Indice{
 
 
 // Funcion que imprime los paths correspondientes a una llave
-void Imprimir_Nodo(Nodo_Hash *nodo){
+void imprimir_nodo(Nodo_Hash *nodo){
     printf("\tArchivos de la llave: %s\n", nodo->llave);
     Nodo_Path *paths = nodo->archivos;
     while(paths != NULL){
         printf("\t%s\n",paths->path);
         paths = paths->siguiente;
-        printf("\n");
     }
 }
 
 // Funcion que imprime todos las llaves correspondiente a un indice de
 // una tabla de hash
-void Imprimir_Lista(Lista_Llaves *lista){
+void imprimir_lista(Lista_Llaves *lista){
     Nodo_Hash *nodo = lista->primer_elemento;
     while(nodo != NULL){
-        Imprimir_Nodo(nodo);
+        imprimir_nodo(nodo);
         nodo = nodo->siguiente;
     }
 }
 
 // Funcion que imprime todos los elementos de una tabla de hash
-void Imprimir_Tabla(Indice *tabla){
+void imprimir_tabla(Indice *tabla){
     int i;
     for(i = 0; i < tabla->tamano; i++){
         printf("Elementos en el indice: %d. %d llaves.\n", i, tabla->contenido[i]->numero_elementos);
-        Imprimir_Lista(tabla->contenido[i]);
+        imprimir_lista(tabla->contenido[i]);
         printf("\n");
     }
 }
@@ -145,8 +154,8 @@ Indice* rehash(Indice* tabla_antigua){
 
 // Funcion que inserta un path en todos las llaves con las cuales podria
 // encontrarse al hacer una busqueda
-Indice* Insertar_Llave_Hash(Indice *tabla, char *path, int inicio){
-    printf("PATH %s\n", path);
+Indice* insertar_llave_hash(Indice *tabla, char *path, int inicio){
+    //printf("PATH %s\n", path);
     char c;
     int i = 0;
     int tamano = 0; // La cantidad de letras del substring
@@ -175,7 +184,7 @@ Indice* Insertar_Llave_Hash(Indice *tabla, char *path, int inicio){
         if (tamano != 0){
             strncpy(substring,path+inicio,tamano);
             substring[tamano] == '\0';
-            printf("Substring %s\n", substring);
+            //printf("Substring %s\n", substring);
             // Insertar en la tabla de hash
             int indice = hash(substring, tabla->tamano);
             Nodo_Hash *nodo = buscar(tabla, substring);
@@ -307,88 +316,183 @@ Indice* leer_indice(char *nombreIndice){
     return tabla_hash;
 }
 
+// Funcion que revisa si un archivo ya ha sido insertado en una tabla de hash
+// Retorna 1 si el archivo ya estaba. Si el archivo no estaba, lo inserta y
+// retorna 0
+int buscar_path(Indice *tabla, char *path){
+
+    //printf("PATH %s\n", path);
+    char c;
+    int i = 0;
+    int tamano = 0; // La cantidad de letras del substring
+    c = path[i];
+
+    // Saltamos los directorios
+    int ultimo_directorio = 0;
+    while(c != '\0'){
+        i++;
+        if (c == '/'){
+            ultimo_directorio = i;
+        }
+        c = path[i];
+    }
+    int inicio = ultimo_directorio;
+    i = ultimo_directorio;
+    c = path[i];
+    while (c != '\0'){
+        // Separadores de palabras
+        while(c != ' ' && c != '/' && c != '.' && c != '\0'){
+            tamano++;
+            i++;
+            c = path[i];
+        }
+        char *substring = (char *) calloc(tamano+1,sizeof(char)); // +1 para el \0
+        if (tamano != 0){
+            strncpy(substring,path+inicio,tamano);
+            substring[tamano] == '\0';
+			Nodo_Hash *nodo = buscar(tabla, substring);
+			if (nodo == NULL){ // No hay un nodo con esa llave, por tanto el archivo no ha sido introducido
+				insertar_llave_hash(tabla, path,0);
+				break;
+			} else { // Se encontro un nodo con esa llave
+				// Revisamos si algun archivo es el que buscamos
+				Nodo_Path *paths = nodo->archivos;
+				while (paths != NULL){	// Mientras existan mas paths
+					if (strcmp(paths->path,path)){ 	// Si son distintos
+						paths = paths->siguiente;	
+					} else { // Si son igualesa, terminamos
+						return 1;
+					}
+				}
+				insertar_llave_hash(tabla,path,0); // El archivo no es encontrado, se agrega
+				break; 	
+			}
+		}
+	}
+	return 0;
+}
+
 int main(int argc, char **argv){
     Indice *tabla_hash = crear_indice(10);
+    
     // 16 llaves distintas
-    tabla_hash = Insertar_Llave_Hash(tabla_hash, "home/rafael/tarea/Casa de Papel.pdf",0);                 
-    printf("\n");
-    tabla_hash = Insertar_Llave_Hash(tabla_hash, "home/rafael/tarea/Clase Proba.txt",0);                   
-    printf("\n");
-    tabla_hash = Insertar_Llave_Hash(tabla_hash, "home/rafael/tarea/Ricitos de oro.pdf",0);                    
-    printf("\n");
-    tabla_hash = Insertar_Llave_Hash(tabla_hash, "home/rafael/tarea/Arbol Binario.c",0);                   
-    printf("\n");
-    tabla_hash = Insertar_Llave_Hash(tabla_hash, "home/rafael/tarea/Arbol Ternario.java",0);                   
-    printf("\n");
-    tabla_hash = Insertar_Llave_Hash(tabla_hash, "home/rafael/tarea/Proyecto.c",0);                    
-    printf("\n");
-    tabla_hash = Insertar_Llave_Hash(tabla_hash, "home/rafael/tarea/Proyecto 2.c",0);                  
-    printf("\n");
-    //Imprimir_Tabla(tabla_hash);
-    printf("\n");
+    tabla_hash = insertar_llave_hash(tabla_hash, "home/rafael/tarea/Casa de Papel.pdf",0);  
+    tabla_hash = insertar_llave_hash(tabla_hash, "home/rafael/tarea/Clase Proba.txt",0);  
+    tabla_hash = insertar_llave_hash(tabla_hash, "home/rafael/tarea/Ricitos de oro.pdf",0); 
+    tabla_hash = insertar_llave_hash(tabla_hash, "home/rafael/tarea/Arbol Binario.c",0);  
+    tabla_hash = insertar_llave_hash(tabla_hash, "home/rafael/tarea/Arbol Ternario.java",0);  
+    tabla_hash = insertar_llave_hash(tabla_hash, "home/rafael/tarea/Proyecto.c",0);      
+    tabla_hash = insertar_llave_hash(tabla_hash, "home/rafael/tarea/Proyecto 2.c",0);  
+    //imprimir_tabla(tabla_hash);
 
     escribir_indice(tabla_hash, "IndiceHash.txt");
     Indice *nueva_tabla = leer_indice("IndiceHash.txt");
-    //Imprimir_Tabla(nueva_tabla);
+    //imprimir_tabla(nueva_tabla);
+    
+
+	// Flags
+	carpeta_inicial = ".";
+	altura = 20;
+	archivo_indice = "Index.txt";
+	no_add = 0;
+	no_update = 0;
 
     int c;
     while (1){    
         static struct option long_options[] =
             {   
                 {"noupdate", no_argument, 0, 'u'},
-                {"noadd", no_argument, 0, 'a'},
-    
+                {"noadd", no_argument, 0, 'a'},    
                 {"dir", required_argument, 0, 'd'},
                 {"max", required_argument, 0, 'm'},
                 {"index", required_argument, 0, 'i'},
                 {0,0,0,0}
-            };
-    
-            int option_index = 0;
-    
-            c = getopt_long (argc, argv, "uad:m:i:", long_options, &option_index);
-    
-            if(c == -1){
-                break;
-            }
-            
-            switch (c) {
-                case 0:
-                    if (long_options[option_index].flag != 0)
-                        break;
-                    printf("option %s", long_options[option_index].name);
-                    if (optarg)
-                        printf(" with arg %s", optarg);
-                    printf("\n");
-                    break;
-                
-                case 'u':
-                    puts ("option -u\n");
-                    break;
-    
-                case 'a':
-                    puts ("option -a\n");
-                    break;
-    
-                case 'd':
-                    printf ("option -d with value %s\n", optarg);
-                    break;
-    
-                case 'm':
-                    printf ("option -m with value %s\n", optarg);
-                    break;
-    
-                case 'i':
-                    printf ("option -i with value %s\n", optarg);
-                    break;
-    
-                case '?':
-                    break;
-    
-                default:
-                    abort();
-            }
-        }
+		};
+
+		int option_index = 0;
+
+		c = getopt_long (argc, argv, "uad:m:i:", long_options, &option_index);
+
+		if(c == -1){
+			break;
+		}
+		
+		switch (c) {
+			case 0:
+				if (long_options[option_index].flag != 0)
+					break;
+				//printf("option %s", long_options[option_index].name);
+				//if (optarg)
+					//printf(" with arg %s", optarg);
+				//printf("\n");
+				break;
+			
+			case 'u':
+				no_update = 1;
+				//puts ("option -u\n");
+				break;
+
+			case 'a':
+				no_add = 1;
+				//puts ("option -a\n");
+				break;
+
+			case 'd':
+				carpeta_inicial = optarg;
+				//printf ("option -d with value %s\n", optarg);
+				break;
+
+			case 'm':
+				altura = atoi(optarg);
+				//printf ("option -m with value %s\n", optarg);
+				break;
+
+			case 'i':
+				archivo_indice = optarg;
+				//printf ("option -i with value %s\n", optarg);
+				break;
+
+			case '?':
+				break;
+
+			default:
+				abort();
+		}
+	}
+	// Test Flags
+/*
+	printf("Altura: %d\n", altura);
+	printf("carpeta_inicial: %s\n", carpeta_inicial);
+	printf("no_add: %d\n", no_add);
+	printf("no_update: %d\n", no_update);
+	printf("archivo_indice: %s\n", archivo_indice);
+*/
+
+	//pthread_t hilo;
+	//pthread_create(hilo,NULL,funcion_hilo,carpeta_inicial);
+	
+	// Buscador
+/*
+    // 16 llaves distintas
+    tabla_hash = insertar_llave_hash(tabla_hash, "home/rafael/tarea/Casa de Papel.pdf",0); 
+    tabla_hash = insertar_llave_hash(tabla_hash, "home/rafael/tarea/Clase Proba.txt",0); 
+    tabla_hash = insertar_llave_hash(tabla_hash, "home/rafael/tarea/Ricitos de oro.pdf",0); 
+    tabla_hash = insertar_llave_hash(tabla_hash, "home/rafael/tarea/Arbol Binario.c",0);   
+    tabla_hash = insertar_llave_hash(tabla_hash, "home/rafael/tarea/Arbol Ternario.java",0); 
+    tabla_hash = insertar_llave_hash(tabla_hash, "home/rafael/tarea/Proyecto.c",0);       
+    tabla_hash = insertar_llave_hash(tabla_hash, "home/rafael/tarea/Proyecto 2.c",0);   
+    imprimir_tabla(tabla_hash);
+	int p = buscar_path(tabla_hash,"home/rafael/tarea/Proyecto 3.c");
+	printf("ENCONTRADO: %d\n\n\n", p);
+	imprimir_tabla(tabla_hash);
+	Nodo_Hash *nodo = buscar(tabla_hash,argv[1]);
+	printf("Buscando \"%s\"\n", argv[1]);
+	if (nodo != NULL){
+		imprimir_nodo(nodo);
+	} else {
+		printf("No se encontraron coincidencias");
+	}
+*/
 }
 
 
