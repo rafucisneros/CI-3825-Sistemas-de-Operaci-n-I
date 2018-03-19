@@ -107,6 +107,7 @@ int hash(char *llave, int tamano_arreglo){
 // Funcion que busca en una tabla de hash una llave. Retorna un apuntador
 // al nodo que coincide con la llave o NULL si no coincide ningun elemento
 Nodo_Hash *buscar(Indice *tabla, char *llave){
+	Lista_Llaves **lista = tabla->contenido;
     Nodo_Hash *nodo = (tabla->contenido[hash(llave, tabla->tamano)])->primer_elemento;
     if (nodo != NULL){ // Si la lista tiene nodos
         while(nodo != NULL){ // Mientras existan mas nodos
@@ -206,8 +207,9 @@ Indice* insertar_llave_hash(Indice *tabla, char *path, int inicio){
                 nueva_llave->siguiente = tabla->contenido[indice]->primer_elemento;
                 tabla->contenido[indice]->primer_elemento = nueva_llave;
                 tabla->contenido[indice]->numero_elementos++;
-                if (tabla->contenido[indice]->numero_elementos > 20){ // Demasiadas colisiones
+                if (tabla->contenido[indice]->numero_elementos > 2){ // Demasiadas colisiones
                     tabla = rehash(tabla);
+                    tabla_hash = tabla;
                 }
             } else { // llave ya incluida
                 Nodo_Path *nuevo_path = malloc(sizeof(Nodo_Path));
@@ -297,13 +299,14 @@ Indice* leer_indice(char *nombreIndice){
     int tamano = 30;
 
     int scan_result = fscanf(f, "%s", buffer);
-    Indice* tabla_hash = crear_indice(atoi(buffer));
+    Indice* tabla_hash;
+    if (!atoi(buffer)){
+    	return crear_indice(30);
+    } else {
+    	tabla_hash = crear_indice(atoi(buffer));
+    }
 
     char keybuffer[2048];
-
-    // char * line = NULL;
-    // size_t len = 0;
-    // ssize_t read;
 
     int keyswitch = 0;
     int sendup = 0;
@@ -514,7 +517,9 @@ int main(int argc, char **argv){
 	if(indice_entrante = fopen(archivo_indice,"r")){ // Si se logra abrir el archivo cargamos la tabla desde ahi
 		tabla_hash = leer_indice(archivo_indice);
 	} else { // Creamos una nueva tabla vacia
-		tabla_hash = crear_indice(10);
+		tabla_hash = crear_indice(30);
+		indice_entrante = fopen(archivo_indice,"w");
+		fclose(indice_entrante);
 	}
 	// Iniciamos el mutex para exclusion mutua
     if (pthread_mutex_init(&escribiendo_tabla, NULL) != 0){
