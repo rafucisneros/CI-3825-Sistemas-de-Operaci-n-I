@@ -19,7 +19,7 @@ char *archivo_indice;
 int no_add;
 int no_update;
 // Semaforo
-pthread_mutex_t escribiendo_tabla;
+pthread_mutex_t usando_tabla;
 
 
 // Estructura que contendra los diferentes archivos que se encuentran
@@ -108,7 +108,9 @@ int hash(char *llave, int tamano_arreglo){
 // al nodo que coincide con la llave o NULL si no coincide ningun elemento
 Nodo_Hash *buscar(Indice *tabla, char *llave){
     Lista_Llaves **lista = tabla->contenido;
+	pthread_mutex_lock(&usando_tabla); // Bloqueamos la zona critica
     Nodo_Hash *nodo = (tabla->contenido[hash(llave, tabla->tamano)])->primer_elemento;
+	pthread_mutex_unlock(&usando_tabla); // Desbloquemos la zona critica
     if (nodo != NULL){ // Si la lista tiene nodos
         while(nodo != NULL){ // Mientras existan mas nodos
             if (!strcmp(nodo->llave, llave)){
@@ -185,7 +187,7 @@ Indice* insertar_llave_hash(Indice *tabla, char *path, int inicio){
     c = path[i];
     while (c != '\0'){
         // Separadores de palabras
-        while(c != ' ' && c != '/' && c != '.' && c != '\0'){
+        while(c != ' ' && c != '/' && c != '.' && c != '\0' && c != '-' && c != '_'){
             tamano++;
             i++;
             c = path[i];
@@ -322,9 +324,9 @@ Indice* leer_indice(char *nombreIndice){
                         break;
                     }
                     if(sendup){                    
-                        pthread_mutex_lock(&escribiendo_tabla); // Bloqueamos la zona critica
+                        pthread_mutex_lock(&usando_tabla); // Bloqueamos la zona critica
                         insertar_rapido(tabla_hash, keybuffer, buffer);
-                        pthread_mutex_unlock(&escribiendo_tabla); // Desbloquemos la zona critica
+                        pthread_mutex_unlock(&usando_tabla); // Desbloquemos la zona critica
                     } else {
                         sendup = 1;
                     }
@@ -375,9 +377,9 @@ int buscar_path(Indice *tabla, char *path_1){
             Nodo_Hash *nodo = buscar(tabla, substring);
             if (nodo == NULL){ // No hay un nodo con esa llave, por tanto el archivo no ha sido introducido
                 if (!no_add){ // Si no esta encendido el flag no add, agregamos al indice
-                    pthread_mutex_lock(&escribiendo_tabla); // Bloqueamos la zona critica
+                    pthread_mutex_lock(&usando_tabla); // Bloqueamos la zona critica
                     insertar_llave_hash(tabla,path,0); // El archivo no es encontrado, se agrega
-                    pthread_mutex_unlock(&escribiendo_tabla); // Desbloquemos la zona critica
+                    pthread_mutex_unlock(&usando_tabla); // Desbloquemos la zona critica
                 }
                 break;
             } else { // Se encontro un nodo con esa llave
@@ -391,9 +393,9 @@ int buscar_path(Indice *tabla, char *path_1){
                     }
                 }
                 if (!no_add){ // Si no esta encendido el flag no add, agregamos al indice
-                    pthread_mutex_lock(&escribiendo_tabla); // Bloqueamos la zona critica
+                    pthread_mutex_lock(&usando_tabla); // Bloqueamos la zona critica
                     insertar_llave_hash(tabla,path,0); // El archivo no es encontrado, se agrega
-                    pthread_mutex_unlock(&escribiendo_tabla); // Desbloquemos la zona critica
+                    pthread_mutex_unlock(&usando_tabla); // Desbloquemos la zona critica
                 }
                 break;  
             }

@@ -21,7 +21,7 @@ char *archivo_indice;
 int no_add;
 int no_update;
 // Semaforo
-pthread_mutex_t escribiendo_tabla;
+pthread_mutex_t usando_tabla;
 // Tabla de Hash
 Indice *tabla_hash;
 
@@ -137,7 +137,7 @@ int main(int argc, char **argv){
 		fclose(indice_entrante);
 	}
 	// Iniciamos el mutex para exclusion mutua
-    if (pthread_mutex_init(&escribiendo_tabla, NULL) != 0){
+    if (pthread_mutex_init(&usando_tabla, NULL) != 0){
         printf("No se pude iniciar el mutex para exclusion mutua.\n");
         return EXIT_FAILURE;
     }
@@ -146,7 +146,7 @@ int main(int argc, char **argv){
 	pthread_create(&hilo_buscador, NULL, buscador, (void *)argv[argc-1]);
 	pthread_join(hilo_indizador, NULL);
 	pthread_join(hilo_buscador, NULL);
-    pthread_mutex_destroy(&escribiendo_tabla);
+    pthread_mutex_destroy(&usando_tabla);
 }
 
 
