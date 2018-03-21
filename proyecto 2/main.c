@@ -35,7 +35,11 @@ int accion_por_nodo(const char *path, const struct stat *inode, int tflags, stru
 		char full_path [PATH_MAX];
 		char *ptr;
 		ptr = realpath(path, full_path);
-		int incluido = buscar_path(tabla_hash,ptr);
+		char es_archivo = 0;
+		if(S_ISREG(inode->st_mode)){ // Chequeamos segun el modo del inode si es un archivo
+			es_archivo = 1;
+		}
+		int incluido = buscar_path(tabla_hash,ptr,es_archivo);
 		if (incluido && no_update){ // Si tenemos el flag no update y encontramos una carpeta ya incluida
 			return 2; // 2 = Saltar hijos
 		}

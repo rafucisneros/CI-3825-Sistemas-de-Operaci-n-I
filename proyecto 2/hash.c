@@ -27,6 +27,7 @@ pthread_mutex_t usando_tabla;
 typedef struct Nodo_Path {
     char *path;
     struct Nodo_Path *siguiente;
+    int es_archivo; // 1 si el path corresponde a un archivo. 0 Si es directorio
     } Nodo_Path;
     
 // Estructura que contendra las llaves y la lista de paths que coinciden con la llave
@@ -55,9 +56,9 @@ void imprimir_nodo(Nodo_Hash *nodo){
     printf("\tArchivos de la llave: %s\n", nodo->llave);
     Nodo_Path *paths = nodo->archivos;
     while(paths != NULL){
-        printf("\t\t%s\n",paths->path);
-        paths = paths->siguiente;
-    }
+		printf("\t\t%s\n",paths->path);
+		paths = paths->siguiente;
+	}
 }
 
 // Funcion que imprime todos las llaves correspondiente a un indice de
@@ -108,9 +109,9 @@ int hash(char *llave, int tamano_arreglo){
 // al nodo que coincide con la llave o NULL si no coincide ningun elemento
 Nodo_Hash *buscar(Indice *tabla, char *llave){
     Lista_Llaves **lista = tabla->contenido;
-	pthread_mutex_lock(&usando_tabla); // Bloqueamos la zona critica
+	//pthread_mutex_lock(&usando_tabla); // Bloqueamos la zona critica
     Nodo_Hash *nodo = (tabla->contenido[hash(llave, tabla->tamano)])->primer_elemento;
-	pthread_mutex_unlock(&usando_tabla); // Desbloquemos la zona critica
+	//pthread_mutex_unlock(&usando_tabla); // Desbloquemos la zona critica
     if (nodo != NULL){ // Si la lista tiene nodos
         while(nodo != NULL){ // Mientras existan mas nodos
             if (!strcmp(nodo->llave, llave)){
@@ -167,7 +168,7 @@ Indice* rehash(Indice* tabla_antigua){
 
 // Funcion que inserta un path en todos las llaves con las cuales podria
 // encontrarse al hacer una busqueda
-Indice* insertar_llave_hash(Indice *tabla, char *path, int inicio){
+Indice* insertar_llave_hash(Indice *tabla, char *path, int inicio, int es_archivo){
     char c;
     int i = 0;
     int tamano = 0; // La cantidad de letras del substring
@@ -204,6 +205,7 @@ Indice* insertar_llave_hash(Indice *tabla, char *path, int inicio){
                 Nodo_Path *nuevo_path = malloc(sizeof(Nodo_Path));
                 nuevo_path->path = path;
                 nuevo_path->siguiente = NULL;
+                nuevo_path->es_archivo = es_archivo;
                 nueva_llave->llave = substring;
                 nueva_llave->archivos = nuevo_path;
                 nueva_llave->siguiente = tabla->contenido[indice]->primer_elemento;
@@ -217,6 +219,7 @@ Indice* insertar_llave_hash(Indice *tabla, char *path, int inicio){
                 Nodo_Path *nuevo_path = malloc(sizeof(Nodo_Path));
                 nuevo_path->path = path;
                 nuevo_path->siguiente = nodo->archivos;
+                nuevo_path->es_archivo = es_archivo;
                 nodo->archivos = nuevo_path; 
             }
             if (c != '\0'){
@@ -236,7 +239,7 @@ Indice* insertar_llave_hash(Indice *tabla, char *path, int inicio){
 // Escribe en un archivo de salida los paths guardados en una tabla de hash
 void escribir_paths(FILE *f, Nodo_Path *path){
     while(path){
-        fprintf(f, "%s\n", path->path);
+        fprintf(f, "%d %s\n", path->es_archivo,path->path);
         path = path->siguiente;
     }
 }
@@ -268,7 +271,7 @@ void escribir_indice(Indice *tabla, char *nombreIndice){
 }
 
 // Insertar en una tabla de hash un conjunto de paths con una llave introducida
-void insertar_rapido(Indice* tabla, char* llavedir, char* pathdir){
+void insertar_rapido(Indice* tabla, char* llavedir, char* pathdir, int es_archivo){
     char* llave = (char *) calloc(strlen(llavedir),sizeof(char));
     strcpy(llave, llavedir);
     char* path = (char *) calloc(strlen(pathdir),sizeof(char));
@@ -281,6 +284,7 @@ void insertar_rapido(Indice* tabla, char* llavedir, char* pathdir){
         Nodo_Path *nuevo_path = malloc(sizeof(Nodo_Path));
         nuevo_path->path = path;
         nuevo_path->siguiente = NULL;
+		nuevo_path->es_archivo = es_archivo;
         nueva_llave->llave = llave;
         nueva_llave->archivos = nuevo_path;
         nueva_llave->siguiente = tabla->contenido[indice]->primer_elemento;
@@ -290,6 +294,7 @@ void insertar_rapido(Indice* tabla, char* llavedir, char* pathdir){
         Nodo_Path *nuevo_path = malloc(sizeof(Nodo_Path));
         nuevo_path->path = path;
         nuevo_path->siguiente = nodo->archivos;
+		nuevo_path->es_archivo = es_archivo;
         nodo->archivos = nuevo_path; 
     }
 }
@@ -319,13 +324,14 @@ Indice* leer_indice(char *nombreIndice){
             if(keyswitch){
                 strcpy(keybuffer, buffer);
                 while (fgets(buffer, sizeof(buffer), f) != NULL){
-                    buffer[strlen(buffer) - 1] = '\0'; // eat the newline fgets() stores
+                    buffer[strlen(buffer) - 1] = '\0'; // Borrar el \n que se guarda con fgets
                     if(!strcmp(buffer, "/")) {
                         break;
                     }
-                    if(sendup){                    
+                    if(sendup){
+						int es_archivo = atoi(&buffer[0]);       
                         pthread_mutex_lock(&usando_tabla); // Bloqueamos la zona critica
-                        insertar_rapido(tabla_hash, keybuffer, buffer);
+                        insertar_rapido(tabla_hash, keybuffer, buffer+2, es_archivo);//es_archivo);
                         pthread_mutex_unlock(&usando_tabla); // Desbloquemos la zona critica
                     } else {
                         sendup = 1;
@@ -341,7 +347,7 @@ Indice* leer_indice(char *nombreIndice){
 // Funcion que revisa si un archivo ya ha sido insertado en una tabla de hash
 // Retorna 1 si el archivo ya estaba. Si el archivo no estaba, lo inserta y
 // retorna 0
-int buscar_path(Indice *tabla, char *path_1){
+int buscar_path(Indice *tabla, char *path_1, int es_archivo){
     char *path = calloc(strlen(path_1)+1,sizeof(char));
     strcpy(path,path_1);
     path_1[strlen(path_1)] = '\0';
@@ -378,7 +384,7 @@ int buscar_path(Indice *tabla, char *path_1){
             if (nodo == NULL){ // No hay un nodo con esa llave, por tanto el archivo no ha sido introducido
                 if (!no_add){ // Si no esta encendido el flag no add, agregamos al indice
                     pthread_mutex_lock(&usando_tabla); // Bloqueamos la zona critica
-                    insertar_llave_hash(tabla,path,0); // El archivo no es encontrado, se agrega
+                    insertar_llave_hash(tabla,path,0,es_archivo); // El archivo no es encontrado, se agrega
                     pthread_mutex_unlock(&usando_tabla); // Desbloquemos la zona critica
                 }
                 break;
@@ -394,7 +400,7 @@ int buscar_path(Indice *tabla, char *path_1){
                 }
                 if (!no_add){ // Si no esta encendido el flag no add, agregamos al indice
                     pthread_mutex_lock(&usando_tabla); // Bloqueamos la zona critica
-                    insertar_llave_hash(tabla,path,0); // El archivo no es encontrado, se agrega
+                    insertar_llave_hash(tabla,path,0,es_archivo); // El archivo no es encontrado, se agrega
                     pthread_mutex_unlock(&usando_tabla); // Desbloquemos la zona critica
                 }
                 break;  
@@ -408,7 +414,9 @@ int buscar_path(Indice *tabla, char *path_1){
 void imprimir_nodo_simple(Nodo_Hash *nodo) {
     Nodo_Path *paths = nodo->archivos;
     while(paths != NULL){
+		if (paths->es_archivo){
         printf("%s\n",paths->path);
+		}		
         paths = paths->siguiente;
     }
 }
