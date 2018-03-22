@@ -84,7 +84,8 @@ void imprimir_tabla(Indice *tabla){
 Indice *crear_indice(int tamano){
     Lista_Llaves ** contenido = (Lista_Llaves **) malloc(tamano * sizeof(Lista_Llaves *)); 
     Indice *tabla_de_hash = (Indice*) malloc(sizeof(struct Indice));
-    for(int i=0; i<tamano;i++){
+    int i;
+    for(i=0; i<tamano;i++){
         contenido[i] = (Lista_Llaves *) malloc(sizeof(Lista_Llaves));
         contenido[i]->numero_elementos = 0;
         contenido[i]->primer_elemento = NULL;
@@ -138,7 +139,8 @@ void insertar_coleccion_paths(Indice* tabla, char *llave, Nodo_Path *archivos){
         lista_actual->primer_elemento = nueva_coleccion;
     } else {
         Nodo_Hash *nodo = lista_actual->primer_elemento;
-        for(int i = 1; i < lista_actual->numero_elementos; i++) {
+		int i;
+        for(i = 1; i < lista_actual->numero_elementos; i++) {
             nodo = nodo->siguiente;
         }
         nodo->siguiente = nueva_coleccion;
@@ -151,7 +153,8 @@ Indice* rehash(Indice* tabla_antigua){
     int tamano_viejo = tabla_antigua->tamano;
     int tamano = tamano_viejo * 2 + 1;
     Indice *nueva_tabla = crear_indice(tamano);
-    for(int i; i<tamano_viejo; i++){
+	int i;
+    for(i = 0; i<tamano_viejo; i++){
         Lista_Llaves *lista_actual = tabla_antigua->contenido[i];
         if(lista_actual->numero_elementos == 0){
         } else {
@@ -262,7 +265,8 @@ void escribir_indice(Indice *tabla, char *nombreIndice){
     }
     fprintf(f, "%d\n", tabla->tamano);
     fprintf(f, "/\n");
-    for(int i=0;i < tabla->tamano; i++){
+    int i;
+    for(i = 0;i < tabla->tamano; i++){
         if(tabla->contenido[i]->numero_elementos){
             escribir_llave(f, tabla->contenido[i]->primer_elemento);
         }
